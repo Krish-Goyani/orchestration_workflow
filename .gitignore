@@ -180,3 +180,4 @@ batch_api
 .venv
 linters.sh
 track.md
+.cursorignore
