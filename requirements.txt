@@ -2,3 +2,5 @@ black
 autoflake 
 isort 
 vulture
+fastapi[standard]
+httpx
