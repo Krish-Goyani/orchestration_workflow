@@ -1,6 +1,11 @@
-from fastapi import FastAPI
-from src.app.routes.query_route import router as query_router
+from src.tools.url_scraper_tool import url_scraper
 
 
-app = FastAPI()
-app.include_router(query_router)
+async def main():
+    url_scraper
+
+
+if __name__ == "__main__":
+    import asyncio
+
+    asyncio.run(main())

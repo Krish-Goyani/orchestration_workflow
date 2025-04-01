@@ -22,7 +22,7 @@ def create_dir_structure(base_path):
         "src/main.py",
         # ".gitignore",
         "readme.md",
-        "track.md"
+        "track.md",
     ]
 
     # Create directories
