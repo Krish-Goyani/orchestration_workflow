@@ -3,7 +3,7 @@ from typing import Any
 import httpx
 
 from src.config.settings import settings
-from src.tools.tools_factory import tool
+from src.tools.tool_decorator import tool
 
 API_ENDPOINT = f"https://api.openweathermap.org/data/2.5/weather?q={{location}}&APPID={settings.WEATHER_API_KEY}"
 
@@ -20,7 +20,7 @@ async def make_weather_request(url: str) -> dict[str, Any] | None:
             return None
 
 
-@tool
+@tool()
 async def get_forecast(city: str) -> str:
     """Get weather forecast for a location.
 

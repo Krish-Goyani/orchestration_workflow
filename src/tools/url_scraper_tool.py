@@ -1,10 +1,10 @@
 from crawl4ai import AsyncWebCrawler
 
 from src.config.crawler_config import browser_conf, crawler_cfg
-from src.tools.tools_factory import tool
+from src.tools.tool_decorator import tool
 
 
-@tool
+@tool()
 async def url_scraper(url: str) -> str:
     """this is the url scraper tool that will scrape the given url and return the content as the markdown
 
