@@ -1,6 +1,10 @@
+from typing import Callable, List, Optional
+
 from pydantic import BaseModel
+
 from src.models.schema.tools_schema import Tool
-from typing import Optional, List
+
+
 class Agent(BaseModel):
     """
     Agent model for the agent schema.
@@ -8,5 +12,5 @@ class Agent(BaseModel):
 
     name: str
     description: str
-    tools: Optional[List[Tool]] = None  
-    
+    func: Optional[Callable] = None
+    tools: Optional[List[Tool]] = None

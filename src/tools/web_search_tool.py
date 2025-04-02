@@ -7,10 +7,17 @@ from src.tools.tool_decorator import tool
 
 WEBSEARCH_END_POINT = f"https://google.serper.dev/search?q={{query}}&apiKey={settings.SERPER_API_KEY}"
 
+timeout = httpx.Timeout(
+    connect=60.0,  # Time to establish a connection
+    read=120.0,  # Time to read the response
+    write=120.0,  # Time to send data
+    pool=60.0,  # Time to wait for a connection from the pool
+)
+
 
 async def make_websearch_request(url: str) -> dict[str, Any] | None:
     "make a websearch request to the given url"
-    async with httpx.AsyncClient(verify=False) as client:
+    async with httpx.AsyncClient(verify=False, timeout=timeout) as client:
         try:
             response = await client.get(url=url)
             response.raise_for_status()

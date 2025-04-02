@@ -1,6 +1,5 @@
 from crawl4ai import AsyncWebCrawler
 
-from src.config.crawler_config import browser_conf, crawler_cfg
 from src.tools.tool_decorator import tool
 
 
@@ -16,10 +15,17 @@ async def url_scraper(url: str) -> str:
     """
 
     try:
-        async with AsyncWebCrawler(config=browser_conf) as crawler:
-            result = await crawler.arun(url=url, config=crawler_cfg)
-            result = str(result.markdown.fit_markdown)
+        # Create a new crawler instance for each call
+        crawler = AsyncWebCrawler()
+        await crawler.start()  # Explicitly start the crawler
+
+        try:
+            result = await crawler.arun(url=url)
+            result = result.markdown
             return result
+        finally:
+            # Ensure crawler is properly closed even if an error occurs
+            await crawler.close()
     except Exception as e:
-        print(e)
-        return ""
+        print(f"URL scraper error: {e}")
+        return f"Error scraping URL: {str(e)}"

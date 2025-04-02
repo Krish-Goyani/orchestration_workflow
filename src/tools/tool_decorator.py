@@ -4,6 +4,7 @@ import re
 from typing import Callable, get_type_hints
 
 from src.models.schema.tools_schema import Tool
+from src.tools.tools_registry import global_tool_registry
 
 
 def tool():
@@ -96,9 +97,7 @@ def tool():
                     continue
 
                 # Check if this line starts a new parameter
-                param_match = re.match(
-                    r"(\w+)(?:\s*\([^)]+\))?:\s*(.*)", line
-                )
+                param_match = re.match(r"(\w+)(?:\s*\([^)]+\))?:\s*(.*)", line)
                 if param_match:
                     # Save the previous parameter if there is one
                     if current_param and current_description:
@@ -144,9 +143,7 @@ def tool():
                 r"\s*(\w+):\s*(.*)", returns_section, re.DOTALL
             )
             if return_type_desc_match:
-                return_type_from_doc = return_type_desc_match.group(
-                    1
-                ).strip()
+                return_type_from_doc = return_type_desc_match.group(1).strip()
                 return_description = return_type_desc_match.group(2).strip()
                 # Only update return_type if we don't already have it from type hints
                 if return_type == "Any" and return_type_from_doc:
@@ -170,9 +167,7 @@ def tool():
                     # Extract the return description
                     return_line = docstring_lines[start_idx + 1].strip()
                     # Parse "str: markdown content of the url" format
-                    return_match = re.match(
-                        r"\s*(\w+):\s*(.*)", return_line
-                    )
+                    return_match = re.match(r"\s*(\w+):\s*(.*)", return_line)
                     if return_match:
                         return_type_from_line = return_match.group(1)
                         if return_type == "Any" and return_type_from_line:
@@ -225,7 +220,7 @@ def tool():
             return_type=return_type,
             return_description=return_description,
         )
-
+        global_tool_registry.register_tool(tool_instance)
         return tool_instance
 
     return decorator

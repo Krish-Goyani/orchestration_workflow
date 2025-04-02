@@ -7,4 +7,4 @@ httpx
 google-genai
 pydantic_settings
 pydantic
-crawl4ai
+Crawl4AI==0.5.0

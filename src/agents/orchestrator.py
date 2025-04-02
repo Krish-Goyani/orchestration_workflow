@@ -1,14 +1,22 @@
-from src.memory.long_term.memory_store import global_memory_store
-from src.llms.gemini_llm import GeminiLLM
-import uuid
-from src.models.schema.histrory_schema import History, SingleIteration
-from src.config.settings import settings
-from google.genai import types
-from src.models.schema.agent_schema import Agent
 from typing import List
-from src.agents.agent_registry import global_agent_registry
 
-from src.prompts.orchestator_prompt import ORCHESTARTOR_SYSTEM_PROMPT
+from google.genai import types
+
+from src.agents.agent_registry import global_agent_registry
+from src.agents.research_expert import ResearchExpert
+from src.agents.weather_expert import WeatherExpert
+from src.config.settings import settings
+from src.llms.gemini_llm import GeminiLLM
+from src.memory.long_term.memory_store import global_memory_store
+from src.models.schema.agent_schema import Agent
+from src.prompts.orchestator_prompt import (
+    ORCHESTARTOR_SYSTEM_PROMPT,
+    ORCHESTARTOR_USER_PROMPT,
+)
+from src.utils.response_parser import parse_response
+from src.utils.session_context import session_state
+
+
 class OrchestratorAgent:
     """
     Orchestrator Agent Module
@@ -25,13 +33,11 @@ class OrchestratorAgent:
             config: Configuration for the orchestrator
         """
         self.llm = GeminiLLM()
-        self.memory_store = global_memory_store
-        self.session_id = str(uuid.uuid4())
-        self.avilable_agents = []
-        
-        
+        self.session_id = session_state.get()
+        self.research_expert = ResearchExpert()
+        self.weather_expert = WeatherExpert()
+
     def get_available_agents(self) -> List[Agent]:
-        
         """
         Get the list of registered agents.
 
@@ -39,29 +45,56 @@ class OrchestratorAgent:
             list: The list of registered agents.
         """
         return global_agent_registry.get_all_agents()
-        
+
     async def start(self, user_query: str) -> None:
         """
         Start the orchestrator agent.
 
         This method initializes the agent and starts the main loop for task management.
         """
-        self.memory_store.create_history(session_id=self.session_id, user_query=user_query)
-        history = self.memory_store.get_history(session_id=self.session_id)
-        
+        global_memory_store.create_history(
+            session_id=self.session_id, user_query=user_query
+        )
+        history = global_memory_store.get_history(session_id=self.session_id)
+
         # Create a while loop to keep the orchestrator agent running
-        while not history.final_status == "completed" or history.total_iterations <= settings.MAX_ITERATIONS :
-            
-            content = self.memory_store.get_formatted_history(
+        while True:
+            history = global_memory_store.get_history(
                 session_id=self.session_id
             )
+            content = ORCHESTARTOR_USER_PROMPT.format(history=history)
             config = types.GenerateContentConfig(
-                system_instruction= ORCHESTARTOR_SYSTEM_PROMPT
+                system_instruction=ORCHESTARTOR_SYSTEM_PROMPT.format(
+                    available_agents=self.get_available_agents()
+                )
             )
             response = await self.llm.generate_response(
-                config=config,
-                contents=content
+                config=config, contents=content
             )
-            print(response)
 
-                
+            response_data = parse_response(response)
+
+            global_memory_store.add_iteration(
+                session_id=self.session_id,
+                agent_name="OrchestratorAgent",
+                thought=response_data.get("thought"),
+                action=response_data.get("action"),
+                observation="not applicable",
+                action_input=response_data.get("action_input"),
+                tool_call_requires=response_data.get("tool_call_requires"),
+                status=response_data.get("status"),
+            )
+
+            if str(response_data.get("tool_call_requires")).lower() == "true":
+                agent_result = await global_agent_registry.execute_agent(
+                    agent_name=response_data["action"],
+                    input_data=response_data["action_input"],
+                )
+
+                print(agent_result)
+
+            if (
+                str(response_data.get("status")).lower() == "completed"
+                or history.total_iterations >= settings.MAX_ITERATIONS
+            ):
+                break
