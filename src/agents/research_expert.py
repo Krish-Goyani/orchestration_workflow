@@ -9,8 +9,8 @@ from src.llms.gemini_llm import GeminiLLM
 from src.memory.long_term.memory_store import global_memory_store
 from src.models.schema.tools_schema import Tool
 from src.prompts.agent_prompts import (
-    RESEARCH_SYSTEM_PROMPT,
-    RESEARCH_USER_PROMPT,
+    RESEARCH_AGENT_SYSTEM_PROMPT,
+    RESEARCH_AGENT_USER_PROMPT,
 )
 from src.tools.tools_registry import global_tool_registry
 from src.utils.response_parser import ensure_dict, parse_response
@@ -45,11 +45,11 @@ class ResearchExpert:
                 break
 
             config = types.GenerateContentConfig(
-                system_instruction=RESEARCH_SYSTEM_PROMPT.format(
+                system_instruction=RESEARCH_AGENT_SYSTEM_PROMPT.format(
                     available_tools=self.get_available_tools()
                 ),
             )
-            contents = RESEARCH_USER_PROMPT.format(
+            contents = RESEARCH_AGENT_USER_PROMPT.format(
                 action_input=task, history=history
             )
             response = await self.llm.generate_response(
@@ -70,11 +70,11 @@ class ResearchExpert:
                     break
 
                 config = types.GenerateContentConfig(
-                    system_instruction=RESEARCH_SYSTEM_PROMPT.format(
+                    system_instruction=RESEARCH_AGENT_SYSTEM_PROMPT.format(
                         available_tools=self.get_available_tools()
                     )
                 )
-                contents = RESEARCH_USER_PROMPT.format(
+                contents = RESEARCH_AGENT_USER_PROMPT.format(
                     history=history, action_input="Not applicable"
                 )
                 response = await self.llm.generate_response(
