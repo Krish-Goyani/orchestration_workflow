@@ -30,7 +30,6 @@ class ResearchExpert:
 
     async def execute(self, action_input: str):
         agent_iteration_count = 0
-        history = global_memory_store.get_history(session_id=self.session_id)
 
         while True:
             # Fetch the latest history
@@ -88,15 +87,16 @@ class ResearchExpert:
                     tool_call_requires=response_data.get("tool_call_requires"),
                     status=response_data.get("status"),
                 )
-                history = global_memory_store.get_history(
-                    session_id=self.session_id
-                )
-                if (
-                    str(response_data.get("status")).lower() == "completed"
-                    or history.total_iterations >= settings.MAX_ITERATIONS
-                    or agent_iteration_count >= settings.MAX_AGENT_ITERATIONS
-                ):
-                    break
+
+            history = global_memory_store.get_history(
+                session_id=self.session_id
+            )
+            if (
+                str(response_data.get("status")).lower() == "completed"
+                or history.total_iterations >= settings.MAX_ITERATIONS
+                or agent_iteration_count >= settings.MAX_AGENT_ITERATIONS
+            ):
+                break
 
     async def _handle_tool_call(self, response_data, session_id):
         try:

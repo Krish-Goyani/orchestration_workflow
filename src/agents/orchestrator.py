@@ -46,7 +46,7 @@ class OrchestratorAgent:
         """
         return global_agent_registry.get_all_agents()
 
-    async def start(self, user_query: str) -> None:
+    async def start(self, user_query: str) -> str:
         """
         Start the orchestrator agent.
 
@@ -55,7 +55,6 @@ class OrchestratorAgent:
         global_memory_store.create_history(
             session_id=self.session_id, user_query=user_query
         )
-        history = global_memory_store.get_history(session_id=self.session_id)
 
         # Create a while loop to keep the orchestrator agent running
         while True:
@@ -92,9 +91,12 @@ class OrchestratorAgent:
                     input_data=response_data["action_input"],
                 )
 
+            if response_data.get("action") == "ResponseSynthesizerExpert":
+                return agent_result
+
             if (
                 str(response_data.get("status")).lower() == "completed"
                 or history.total_iterations >= settings.MAX_ITERATIONS
-                or response_data.get("action") == "ResponseSynthesizerAgent"
+                or response_data.get("action") == "ResponseSynthesizerExpert"
             ):
                 break

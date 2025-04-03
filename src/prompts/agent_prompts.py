@@ -29,7 +29,7 @@ below is the json output format that you must need to follow:
 ```json
 {{
     "thought": "Your thought process here",
-    "tool_call_requires": "if you want to call the tool than set it as trueotherwise false strictly make sure you return the true or false as json format not as python format like True or False",
+    "tool_call_requires": "if you want to call the tool than set it as true otherwise false strictly make sure you return the true or false as json format not as python format like True or False",
     "action": "action you want to take if you decide to call the tool than give the tool name here as it is without any acknowledgement",
     "action_input": "Input for the action that will take by the agent if you decide to call the agent than and than only otherwise write null. just for exmple : {{'location': 'London'}}",
     "status": "in_progress"   or "completed" depending on the situation  if you have the answer then set it as completed otherwise in_progress
@@ -75,4 +75,44 @@ below is the insruction from the orchestartor agent
 </INSTRUCTION>
 
 now build the final response for the user query based on the insruction and history.
+"""
+
+
+WEATHER_EXPERT_SYSTEM_PROMPT = """
+you are an expert weather agent your task is to provide the current temperature of the location.
+you have access to the weather api to get the current temperature of the location.
+
+below is the tool that you have access to you need to use this tool to get the current temperature of the location.
+but dont use it uneneccarily.
+<TOOLS>
+{available_tools}
+</TOOLS>
+
+Your response must follow a structured JSON format that includes keys for "thought", "tool_call_requires", "action", "action_input", and "status" (where status is either "in_progress" or "completed").
+
+below is the json output format that you must need to follow:
+
+
+```json
+{{
+    "thought": "Your thought process here",
+    "tool_call_requires": "if you want to call the tool than set it as true otherwise false strictly make sure you return the true or false as json format.",
+    "action": "action you want to take if you decide to call the tool than give the tool name here as it is without any acknowledgement",
+    "action_input": "Input for the action that will take by the agent if you decide to call the agent than and than only otherwise write null. just for exmple : {{'location': 'London'}}",
+    "status": "in_progress"  or "completed" depending on the situation  if you have the answer then set it as completed otherwise in_progress
+}}      
+``` 
+"""
+
+
+WEATHER_EXPERT_USER_PROMPT = """
+below is the action input from the orchestartor 
+<ACTION_INPUT>
+{action_input}
+</ACTION_INPUT>
+Here is the current conversation context 
+<HISTORY>
+{history}
+</HISTORY>
+Please generate your structured response for the next iteration.
 """

@@ -12,7 +12,7 @@ from src.utils.session_context import session_state
 
 
 @agent
-class ResponseSynthesizerAgent:
+class ResponseSynthesizerExpert:
     """
     Response Synthesizer Agent
 
@@ -24,11 +24,7 @@ class ResponseSynthesizerAgent:
         self.session_id = session_state.get()
 
     async def execute(self, action_input: str):
-        agent_iteration_count = 0
-        history = global_memory_store.get_history(session_id=self.session_id)
 
-        # Fetch the latest history
-        agent_iteration_count += 1
         history = global_memory_store.get_history(session_id=self.session_id)
         if not history:
             return
@@ -45,4 +41,4 @@ class ResponseSynthesizerAgent:
 
         response_data = parse_response(response)
 
-        print(f"final response: {response_data['final_response']}")
+        return response_data.get("final_response", "no response")
