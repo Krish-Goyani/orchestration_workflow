@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Any, Dict, List, Optional
 
 from src.models.schema.histrory_schema import History, SingleIteration
 
@@ -33,10 +33,11 @@ class MemoryStore:
         agent_name: str,
         thought: str,
         action: str,
-        observation: str,
-        tool_call_requires: str,
-        status: str,
+        observation: Any,
+        tool_call_requires: bool,
         action_input: str,
+        status: str = "in_progress",
+        task_id: Optional[int] = None,
     ) -> None:
         """
         Add a new iteration to the history.
@@ -48,6 +49,9 @@ class MemoryStore:
             action: Action taken by the agent
             observation: Result observed after the action
             tool_call_requires: Whether a tool call is required
+            status: Current status of the iteration
+            action_input: Input provided for the action
+            task_id: Optional ID of the task this iteration belongs to
         """
         if session_id not in self.histories:
             raise ValueError(f"No history found for session ID: {session_id}")
@@ -56,10 +60,11 @@ class MemoryStore:
             agent_name=agent_name,
             thought=thought,
             action=action,
-            tool_call_requires=str(tool_call_requires).lower(),
+            tool_call_requires=tool_call_requires,
             action_input=action_input,
             observation=observation,
             status=status,
+            task_id=task_id,
         )
 
         self.histories[session_id].iterations.append(iteration)
@@ -82,6 +87,39 @@ class MemoryStore:
         print(
             "=========================================================================================="
         )
+
+    def get_task_history(self, session_id: str, task_ids: List[int]) -> History:
+        """
+        Retrieve history for a specific task from the session history.
+
+        Args:
+            session_id: The session identifier
+            task_id: The task identifier to filter by
+
+        Returns:
+            A History object with filtered iterations that match the specified task_id
+        """
+        if session_id not in self.histories:
+            raise ValueError(f"No history found for session ID: {session_id}")
+
+        # Get the original history
+        original_history = self.histories[session_id]
+
+        # Create a new History object with same user query
+        filtered_history = History(
+            user_query=original_history.user_query,
+            iterations=[],
+            total_iterations=original_history.total_iterations,
+            final_status=original_history.final_status,
+        )
+
+        # Filter iterations to only include those with the matching task_id
+        filtered_history.iterations = [
+            iteration
+            for iteration in original_history.iterations
+            if iteration.task_id is not None and iteration.task_id in task_ids
+        ]
+        return filtered_history
 
     def complete_session(self, session_id: str) -> None:
         """

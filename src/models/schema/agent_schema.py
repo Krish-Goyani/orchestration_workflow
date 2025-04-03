@@ -14,3 +14,4 @@ class Agent(BaseModel):
     description: str
     func: Optional[Callable] = None
     tools: Optional[List[Tool]] = None
+    capabilities: Optional[List[str]] = None

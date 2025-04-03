@@ -1,4 +1,5 @@
-from typing import List
+import asyncio
+from typing import Any, Dict, List, Set
 
 from google.genai import types
 
@@ -36,6 +37,8 @@ class OrchestratorAgent:
         self.session_id = session_state.get()
         self.research_expert = ResearchExpert()
         self.weather_expert = WeatherExpert()
+        self.completed_tasks: Set[int] = set()
+        self.task_results: Dict[int, Any] = {}
 
     def get_available_agents(self) -> List[Agent]:
         """
@@ -45,6 +48,95 @@ class OrchestratorAgent:
             list: The list of registered agents.
         """
         return global_agent_registry.get_all_agents()
+
+    async def execute_task(self, task: Dict[str, Any]) -> Any:
+        """
+        Execute a single task using the appropriate agent.
+
+        Args:
+            task: The task to execute
+
+        Returns:
+            The result of the task execution
+        """
+        task_id = task["task_id"]
+        agent_name = task["agent"]
+        task_description = task["task"]
+
+        # Add parent_ids if there are dependencies
+        dependencies = task.get("dependencies", [])
+
+        # Execute the agent with the task
+        result = await global_agent_registry.execute_agent(
+            task_id=task_id,
+            agent_name=agent_name,
+            task=task_description,
+            parent_ids=dependencies,
+        )
+
+        # Store the result
+        self.task_results[task_id] = result
+        self.completed_tasks.add(task_id)
+
+        return result
+
+    async def execute_execution_plan(
+        self, execution_plan: List[Dict[str, Any]]
+    ) -> str:
+        """
+        Execute the tasks in the execution plan respecting dependencies.
+
+        Args:
+            execution_plan: The execution plan with tasks and dependencies
+
+        Returns:
+            The final result after all tasks are completed
+        """
+        # Reset state for new execution plan
+        self.completed_tasks = set()
+        self.task_results = {}
+
+        # Continue until all tasks are completed
+        while len(self.completed_tasks) <= len(execution_plan):
+            # Find tasks that can be executed (all dependencies are satisfied)
+            executable_tasks = []
+            for task in execution_plan:
+                task_id = task["task_id"]
+
+                # Skip already completed tasks
+                if task_id in self.completed_tasks:
+                    continue
+
+                # Check if all dependencies are completed
+                dependencies = task.get("dependencies", [])
+                if all(
+                    dep_id in self.completed_tasks for dep_id in dependencies
+                ):
+                    executable_tasks.append(task)
+
+            if not executable_tasks:
+                # If no tasks can be executed but we haven't completed all tasks,
+                # there might be a circular dependency
+                raise ValueError(
+                    "Circular dependency detected in execution plan"
+                )
+
+            # Execute all executable tasks in parallel
+            tasks = [self.execute_task(task) for task in executable_tasks]
+            await asyncio.gather(*tasks)
+
+            # If we've completed the ResponseSynthesizerExpert task, return its result
+            for task in executable_tasks:
+                if (
+                    task["agent"] == "ResponseSynthesizerExpert"
+                    and task["task_id"] in self.completed_tasks
+                ):
+                    return self.task_results[task["task_id"]]
+
+        # If we've completed all tasks but there's no ResponseSynthesizerExpert,
+        # return the result of the last task
+        last_task_id = max(task["task_id"] for task in execution_plan)
+        return self.task_results[last_task_id]
 
     async def start(self, user_query: str) -> str:
         """
@@ -74,25 +166,35 @@ class OrchestratorAgent:
 
             response_data = parse_response(response)
 
-            global_memory_store.add_iteration(
-                session_id=self.session_id,
-                agent_name="OrchestratorAgent",
-                thought=response_data.get("thought"),
-                action=response_data.get("action"),
-                observation="not applicable",
-                action_input=response_data.get("action_input"),
-                tool_call_requires=response_data.get("tool_call_requires"),
-                status=response_data.get("status"),
-            )
+            # Check if the response contains an execution plan
+            execution_plan = response_data.get("execution_plan", None)
 
-            if str(response_data.get("tool_call_requires")).lower() == "true":
-                agent_result = await global_agent_registry.execute_agent(
-                    agent_name=response_data["action"],
-                    input_data=response_data["action_input"],
+            if not execution_plan:
+                global_memory_store.add_iteration(
+                    session_id=self.session_id,
+                    agent_name="OrchestratorAgent",
+                    thought=response_data.get("thought"),
+                    action=response_data.get("action"),
+                    observation="not applicable",
+                    action_input=response_data.get("action_input"),
+                    tool_call_requires=response_data.get("tool_call_requires"),
+                    status=response_data.get("status"),
                 )
 
-            if response_data.get("action") == "ResponseSynthesizerExpert":
-                return agent_result
+            # If we have an execution plan, execute it
+            if execution_plan:
+                result = await self.execute_execution_plan(execution_plan)
+                return result
+
+            # Otherwise, follow the original flow
+            elif str(response_data.get("tool_call_requires")).lower() == "true":
+                agent_result = await global_agent_registry.execute_agent(
+                    agent_name=response_data["action"],
+                    task=response_data["action_input"],
+                )
+
+                if response_data.get("action") == "ResponseSynthesizerExpert":
+                    return agent_result
 
             if (
                 str(response_data.get("status")).lower() == "completed"

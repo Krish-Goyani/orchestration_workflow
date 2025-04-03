@@ -1,3 +1,5 @@
+from typing import List
+
 from google.genai import types
 
 from src.agents.agent_decorator import agent
@@ -23,8 +25,9 @@ class ResponseSynthesizerExpert:
         self.llm = GeminiLLM()
         self.session_id = session_state.get()
 
-    async def execute(self, action_input: str):
-
+    async def execute(
+        self, task_id: int, task: str, parent_ids: List[int] = []
+    ):
         history = global_memory_store.get_history(session_id=self.session_id)
         if not history:
             return
@@ -33,7 +36,7 @@ class ResponseSynthesizerExpert:
             system_instruction=RESPONSE_SYNTHESIZER_SYSTEM_PROMPT
         )
         contents = RESPONSE_SYNTHESIZER_USER_PROMPT.format(
-            action_input=action_input, history=history
+            action_input=task, history=history
         )
         response = await self.llm.generate_response(
             config=config, contents=contents

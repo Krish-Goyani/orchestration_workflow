@@ -1,3 +1,5 @@
+from typing import List
+
 from google.genai import types
 
 from src.agents.agent_decorator import agent
@@ -28,14 +30,16 @@ class ResearchExpert:
         self.llm = GeminiLLM()
         self.session_id = session_state.get()
 
-    async def execute(self, action_input: str):
+    async def execute(
+        self, task_id: int, task: str, parent_ids: List[int] = []
+    ):
         agent_iteration_count = 0
-
+        task_ids = [task_id] + parent_ids
         while True:
             # Fetch the latest history
             agent_iteration_count += 1
-            history = global_memory_store.get_history(
-                session_id=self.session_id
+            history = global_memory_store.get_task_history(
+                session_id=self.session_id, task_ids=task_ids
             )
             if not history:
                 break
@@ -46,7 +50,7 @@ class ResearchExpert:
                 ),
             )
             contents = RESEARCH_USER_PROMPT.format(
-                action_input=action_input, history=history
+                action_input=task, history=history
             )
             response = await self.llm.generate_response(
                 config=config, contents=contents
@@ -55,7 +59,9 @@ class ResearchExpert:
             response_data = parse_response(response)
 
             if str(response_data.get("tool_call_requires")).lower() == "true":
-                await self._handle_tool_call(response_data, self.session_id)
+                await self._handle_tool_call(
+                    response_data, self.session_id, task_id
+                )
             else:
                 history = global_memory_store.get_history(
                     session_id=self.session_id
@@ -86,6 +92,7 @@ class ResearchExpert:
                     action_input=response_data.get("action_input"),
                     tool_call_requires=response_data.get("tool_call_requires"),
                     status=response_data.get("status"),
+                    task_id=task_id,
                 )
 
             history = global_memory_store.get_history(
@@ -98,7 +105,7 @@ class ResearchExpert:
             ):
                 break
 
-    async def _handle_tool_call(self, response_data, session_id):
+    async def _handle_tool_call(self, response_data, session_id, task_id):
         try:
             argument = ensure_dict(response_data.get("action_input"))
             result = await global_tool_registry.call_tool(
@@ -119,6 +126,7 @@ class ResearchExpert:
             action_input=response_data.get("action_input"),
             tool_call_requires=response_data.get("tool_call_requires"),
             status=response_data.get("status"),
+            task_id=task_id,
         )
         return True
 

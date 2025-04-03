@@ -1,12 +1,13 @@
-from typing import Any, Literal, Optional
+from typing import Any, Literal, Optional, Union
 
 from pydantic import BaseModel, Field
 
 
 class SingleIteration(BaseModel):
     agent_name: str = Field(..., description="Name of the agent")
+    task_id: Optional[int] = Field(None, description="Task id of the agent")
     thought: str = Field(..., description="Thought process of the agent")
-    tool_call_requires: bool = Field(
+    tool_call_requires: Union[bool, str] = Field(
         ..., description="Requirements for tool call"
     )
     action: Optional[Any] = Field(..., description="Action taken by the agent")

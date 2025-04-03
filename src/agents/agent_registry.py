@@ -13,6 +13,7 @@ class AgentRegistry:
     def __init__(self):
         self._agents: Dict[str, Agent] = {}
         self._agent_tools: Dict[str, List[Tool]] = {}
+        self._total_tasks: int = 0
 
     def register(self, agent: Agent) -> None:
         """Register an agent with the system"""
@@ -50,6 +51,7 @@ class AgentRegistry:
                 func=agent.func,
                 description=agent.description,
                 tools=self.get_agent_tools(agent_name),
+                capabilities=agent.capabilities,
             )
             updated_agents.append(updated_agent)
         return updated_agents
@@ -106,7 +108,13 @@ class AgentRegistry:
 
         return self._agent_tools.get(agent_name, [])
 
-    async def execute_agent(self, agent_name: str, input_data: str) -> dict:
+    async def execute_agent(
+        self,
+        agent_name: str,
+        task: str,
+        task_id: int = None,
+        parent_ids: List[int] = [],
+    ) -> dict:
         """
         Execute a specific agent with the given input
         Returns the agent's response or an error message
@@ -127,7 +135,9 @@ class AgentRegistry:
 
         try:
             # Execute the agent's function with the input
-            result = await agent.func(input_data)
+            result = await agent.func(
+                task_id=task_id, task=task, parent_ids=parent_ids
+            )
             return result
         except Exception as e:
             error_msg = f"Error executing agent '{agent_name}': {str(e)}"
@@ -139,6 +149,12 @@ class AgentRegistry:
         self._agents.clear()
         self._agent_tools.clear()
         print("Agent registry cleared.")
+
+    def get_total_tasks(self) -> int:
+        return self._total_tasks
+
+    def update_total_tasks(self, value: int) -> None:
+        self._total_tasks += value
 
 
 # Global singleton instance
