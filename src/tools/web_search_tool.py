@@ -42,5 +42,5 @@ async def websearch(query: str) -> List[str]:
     if not urls:
         return "not found"
 
-    results = [res["link"] for res in urls["organic"]]
+    results = [res["link"] for res in urls["organic"]][:4]
     return results

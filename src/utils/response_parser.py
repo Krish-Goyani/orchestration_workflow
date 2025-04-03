@@ -17,3 +17,14 @@ def parse_response(response) -> Any:
     else:
         print("No JSON block found in the response.")
         return None
+
+
+def ensure_dict(response):
+    if isinstance(response, str):  # Check if it's a string
+        try:
+            response = json.loads(
+                response.replace("'", '"')
+            )  # Convert single quotes to double quotes for valid JSON
+        except json.JSONDecodeError:
+            pass  # If decoding fails, return the original response
+    return response  # Return as dict if converted, else original

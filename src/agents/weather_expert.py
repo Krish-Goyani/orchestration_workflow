@@ -4,7 +4,7 @@ from src.agents.agent_decorator import agent
 from src.llms.gemini_llm import GeminiLLM
 from src.memory.long_term.memory_store import global_memory_store
 from src.models.schema.tools_schema import Tool
-from src.prompts.research_expert_prompts import RESEARCH_SYSTEM_PROMPT
+from src.prompts.agent_prompts import RESEARCH_SYSTEM_PROMPT
 from src.utils.session_context import session_state
 
 

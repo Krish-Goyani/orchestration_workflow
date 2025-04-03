@@ -34,7 +34,7 @@ class MemoryStore:
         thought: str,
         action: str,
         observation: str,
-        tool_call_requires: bool,
+        tool_call_requires: str,
         status: str,
         action_input: str,
     ) -> None:
@@ -56,7 +56,7 @@ class MemoryStore:
             agent_name=agent_name,
             thought=thought,
             action=action,
-            tool_call_requires=tool_call_requires,
+            tool_call_requires=str(tool_call_requires).lower(),
             action_input=action_input,
             observation=observation,
             status=status,

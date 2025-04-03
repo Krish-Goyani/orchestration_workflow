@@ -1,5 +1,3 @@
-import json
-
 from google.genai import types
 
 from src.agents.agent_decorator import agent
@@ -8,12 +6,12 @@ from src.config.settings import settings
 from src.llms.gemini_llm import GeminiLLM
 from src.memory.long_term.memory_store import global_memory_store
 from src.models.schema.tools_schema import Tool
-from src.prompts.research_expert_prompts import (
+from src.prompts.agent_prompts import (
     RESEARCH_SYSTEM_PROMPT,
     RESEARCH_USER_PROMPT,
 )
 from src.tools.tools_registry import global_tool_registry
-from src.utils.response_parser import parse_response
+from src.utils.response_parser import ensure_dict, parse_response
 from src.utils.session_context import session_state
 
 
@@ -69,9 +67,11 @@ class ResearchExpert:
                 config = types.GenerateContentConfig(
                     system_instruction=RESEARCH_SYSTEM_PROMPT.format(
                         available_tools=self.get_available_tools()
-                    ),
+                    )
                 )
-                contents = RESEARCH_USER_PROMPT.format(history=history)
+                contents = RESEARCH_USER_PROMPT.format(
+                    history=history, action_input="Not applicable"
+                )
                 response = await self.llm.generate_response(
                     config=config, contents=contents
                 )
@@ -100,10 +100,7 @@ class ResearchExpert:
 
     async def _handle_tool_call(self, response_data, session_id):
         try:
-            try:
-                argument = response_data.get("action_input")
-            except:
-                argument = json.loads(response_data.get("action_input"))
+            argument = ensure_dict(response_data.get("action_input"))
             result = await global_tool_registry.call_tool(
                 tool_name=response_data.get("action"), arguments=argument
             )

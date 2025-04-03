@@ -20,14 +20,15 @@ Your output will be used to drive the next iteration in our multi-agent system.
 <AVAILABLE_AGENTS>
 {available_agents}
 </AVAILABLE_AGENTS>
-below is the output format that you must need to follow:
+
+below is the json output format that you must need to follow:
 ```json
 {{
-    thought: "Your thought process here",
-    tool_call_requires: "if you want to call the agent than set it as true otherwise false",
-    action: "action you want to take if you decide to call the agent than give the agent name here as it is without any acknowledgement",
-    action_input: "Input for the action that will take by the agent if you decide to call the agent than and than only otherwise leave it empty",
-    status: "in_progress"  # or "completed" depending on the situation  if you have the answer then set it as completed otherwise in_progress
+    "thought": "Your thought process here",
+    "tool_call_requires": "if you want to call the agent than set it as true otherwise false. strictly make sure you return the true or false as json format not as python format like True or False",
+    "action": "action you want to take if you decide to call the agent than give the agent name here as it is without any acknowledgement",
+    "action_input": "Input for the action that will take by the agent if you decide to call the agent than and than only otherwise write null",
+    "status": "in_progress"  # or "completed" depending on the situation  if you have the answer then set it as completed otherwise in_progress
 }}
 ```
 """

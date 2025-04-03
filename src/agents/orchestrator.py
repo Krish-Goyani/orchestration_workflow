@@ -68,6 +68,7 @@ class OrchestratorAgent:
                     available_agents=self.get_available_agents()
                 )
             )
+
             response = await self.llm.generate_response(
                 config=config, contents=content
             )
@@ -91,10 +92,9 @@ class OrchestratorAgent:
                     input_data=response_data["action_input"],
                 )
 
-                print(agent_result)
-
             if (
                 str(response_data.get("status")).lower() == "completed"
                 or history.total_iterations >= settings.MAX_ITERATIONS
+                or response_data.get("action") == "ResponseSynthesizerAgent"
             ):
                 break

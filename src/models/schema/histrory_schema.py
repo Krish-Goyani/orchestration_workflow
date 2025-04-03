@@ -9,9 +9,10 @@ class SingleIteration(BaseModel):
     tool_call_requires: bool = Field(
         ..., description="Requirements for tool call"
     )
-    action: Optional[str] = Field(..., description="Action taken by the agent")
+    action: Optional[Any] = Field(..., description="Action taken by the agent")
     action_input: Optional[Any] = Field(
-        ..., description="Input for the action taken by the agent"
+        ...,
+        description="Input for the action taken by the agent if not applicable then write null",
     )
     observation: Optional[Any] = Field(
         ..., description="Observation received by the agent"
