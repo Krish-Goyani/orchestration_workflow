@@ -129,7 +129,7 @@ You are the Orchestrator Agent - the central coordinator of a multi-agent system
 ```json
         {{
             "thought": "Explain your reasoning for the next action.",
-            "tool_call_requires": true if you need to call the agentor false for you case tool means agent,
+            "tool_call_requires": true if you need to call the agentor false for you case tool means agent ( true and flase should be boolean values of json format only),
             "action": "TaskDecomposingExpert",  // or "ResponseSynthesizerExpert" name of the agent you want to call from the available agents.
             "action_input": "Specific instructions for the expert agent"
             "status": "in_progress" or "completed"  // Mark as "in_progress" if further processing is required, else "completed".
@@ -218,7 +218,7 @@ your response should be strictly follow below json format:
 
 ```json
 {{
-    "is_response_adequate": true or false without any acknowledgement,
+    "is_response_adequate": true or false without any acknowledgement ( true and flase should be boolean values of json format only),
     "feedback": "if the response is not adequate then provide the deatiled feedback for the response and if the response is adequate then provide the feedback as null"
 }}
 ```

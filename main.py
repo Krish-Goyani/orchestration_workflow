@@ -70,7 +70,7 @@ async def main(user_query) -> None:
 
 
 if __name__ == "__main__":
-    user_query = "what is current weather in london? and tell what is RAG in generative ai. what is the context windo in llm?"
+    user_query = "what is current temperature in london?"
     session_state.set(str(uuid.uuid4()))
     asyncio.run(main(user_query))
 

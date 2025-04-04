@@ -16,5 +16,5 @@ class GeminiLLM:
         )
         if not response:
             return None
-        time.sleep(3)
+        time.sleep(5)
         return response.text

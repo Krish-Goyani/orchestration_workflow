@@ -25,12 +25,14 @@ async def get_forecast(city: str) -> str:
     """Get weather forecast for a location.
 
     Args:
-        city: name of the city whose weather is to be fetched
+        city: name of the city whose temperature is to be fetched
     Returns:
-        str: Weather forecast for the given location
+        str: temperature for the given location
     """
     data = await make_weather_request(API_ENDPOINT.format(location=city))
     if not data:
         return "Failed to fetch weather data"
 
-    return f"The weather in {city} is {data['weather'][0]['description']} with a temperature of {data['main']['temp']}°K."
+    # Convert Kelvin to Celsius
+    temp_celsius = round(data['main']['temp'] - 273.15, 1)
+    return f"The weather in {city} is {data['weather'][0]['description']} with a temperature of {temp_celsius}°C."

@@ -30,7 +30,7 @@ You have access to below tools :
    ```json
         {{
             "thought": "Explain your reasoning for the next action.",
-            "tool_call_requires": true or false,  // Use true if a tool is needed, otherwise false.
+            "tool_call_requires": true or false ( true and flase should be boolean values of json format only),  // Use true if a tool is needed, otherwise false. 
             "action": "Name of the tool if required from the available tools, else null.",
             "action_input": {{ "key": "value" }} or null,  // Provide valid input if a tool is used where key is the parameter name and value is the parameter value for the tool.
             "status": "in_progress" or "completed"  // Mark as "in_progress" if further processing is required, else "completed".
@@ -226,7 +226,7 @@ You are an expert **Weather Agent** tasked with providing the current temperatur
    ```json
    {{
        "thought": "Your reasoning process here.",
-       "tool_call_requires": true or false,  // Use true if calling the Weather API is necessary; otherwise, false.
+       "tool_call_requires": true or false ( true and flase should be boolean values of json format only),  // Use true if calling the Weather API is necessary; otherwise, false.
        "action": Name of the tool if required from the available tools, else null."
        "action_input": {{"location": "Specified location"}} or null,  // Provide the location in key-value format if the tool is called; otherwise, null.
        "status": "in_progress" or "completed"  // Mark as "in_progress" if further processing is required, else "completed".
