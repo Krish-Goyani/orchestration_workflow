@@ -70,6 +70,13 @@ async def main(user_query) -> None:
 
 
 if __name__ == "__main__":
-    user_query = "what is current weather in london? and tell what is RAG in generative ai"
+    user_query = "what is current weather in london? and tell what is RAG in generative ai. what is the context windo in llm?"
     session_state.set(str(uuid.uuid4()))
     asyncio.run(main(user_query))
+
+
+# TODO
+"""
+rag as tool,
+sandbox env where agent can run code
+"""

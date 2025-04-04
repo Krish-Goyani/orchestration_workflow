@@ -10,12 +10,14 @@ You have access to below tools :
 </AVAILABLE_TOOLS>
 
 ### **Instructions:**  
-1. **Analyze the User Query:**  
-   - Review the query and any provided history.  
-   - Determine whether direct research is required or if a tool must be used.  
-
-2. **Decision Making:**  
-   - If the query can be answered without a tool, provide a structured response immediately.  
+    name: str
+    description: str
+    func: Optional[Callable] = None
+    tools: Optional[List[Tool]] = None
+    capabilities: Optional[List[str]] = None
+    status: Literal["in_progress", "completed"] = Field(
+        ..., description="Status of the agent"
+    )
    - If a tool is needed, call the appropriate tool with well-defined input.  
 
 3. **Tool Usage Restrictions:**  
@@ -345,7 +347,8 @@ Your output must strictly follow this json format:
         "specific description of first subtask",
         "specific description of second subtask",
         ...
-    ]
+    ],
+    "status": "completed"
 }}
 ```
 """
@@ -361,5 +364,10 @@ You are part of a multi-agent system, and this prompt is provided by the orchest
     {user_query}
     </USER_QUERY>
 
-Please decompose the user query into smaller tasks. and give the structured output as json format.
+- **Feedback from the human user (it's not necessarily available but if available then   must use it):**
+    <FEEDBACK>
+    {feedback}
+    </FEEDBACK>
+
+Please decompose the user query into smaller tasks. and give the structured output as json format in which you will provide the thought and the decomposed tasks and status(completed).
 """

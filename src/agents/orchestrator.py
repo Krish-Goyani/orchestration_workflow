@@ -7,9 +7,14 @@ from src.agents.agent_registry import global_agent_registry
 from src.agents.research_expert import ResearchExpert
 from src.agents.weather_expert import WeatherExpert
 from src.config.settings import settings
+from src.human_loop.human_feedback import global_feedback_registry
 from src.llms.gemini_llm import GeminiLLM
 from src.memory.long_term.memory_store import global_memory_store
 from src.models.schema.agent_schema import Agent
+from src.prompts.human_feedback_prompts import (
+    EXECUTION_PLAN_FEEDBACK_PROMPT,
+    FINAL_RESPONSE_FEEDBACK_PROMPT,
+)
 from src.prompts.orchestator_prompt import (
     EVALUATION_PROMPT,
     ORCHESTARTOR_SYSTEM_PROMPT,
@@ -187,7 +192,27 @@ class OrchestratorAgent:
 
             # If we have an execution plan, execute it
             if execution_plan:
-                result = await self.execute_execution_plan(execution_plan)
+                feedback = global_feedback_registry.get_human_feedback(
+                    response=EXECUTION_PLAN_FEEDBACK_PROMPT.format(
+                        execution_plan=execution_plan
+                    ),
+                    agent_name="OrchestratorAgent",
+                )
+                if feedback["status"] == "feedback":
+                    global_memory_store.add_iteration(
+                        session_id=self.session_id,
+                        agent_name="OrchestratorAgent",
+                        thought=f"I received feedback from human user which i must use and according to it i should rebuild the execution plan",
+                        action="",
+                        observation=f"feedback from the human user: {feedback['feedback']}",
+                        action_input=execution_plan,
+                        tool_call_requires=False,
+                        status="in_progress",
+                    )
+                    continue
+
+                else:
+                    result = await self.execute_execution_plan(execution_plan)
 
                 # Store the result for potential review
                 final_result = result
@@ -213,20 +238,41 @@ class OrchestratorAgent:
                     global_memory_store.add_iteration(
                         session_id=self.session_id,
                         agent_name="OrchestratorAgent",
-                        thought="I have reviewed the final response and it adequately addresses the user query",
-                        action="Complete",
+                        thought="I have reviewed the final response and it adequately addresses the user query now i need to get feedback from the human user",
+                        action="not applicable",
                         observation="Response quality check passed",
                         action_input="",
                         tool_call_requires=False,
-                        status="completed",
+                        status="in_progress",
                     )
-                    return final_result
+
+                    feedback = global_feedback_registry.get_human_feedback(
+                        response=FINAL_RESPONSE_FEEDBACK_PROMPT.format(
+                            final_response=final_result
+                        ),
+                        agent_name="OrchestratorAgent",
+                    )
+                    if feedback["status"] == "feedback":
+                        global_memory_store.add_iteration(
+                            session_id=self.session_id,
+                            agent_name="OrchestratorAgent",
+                            thought=f"I received feedback from human user which i must use and according to it i should rebuild the execution plan(not fully built as previous one but only such that it incoporate the feedback) and the final response",
+                            action="",
+                            observation=f"feedback from the human user: {feedback['feedback']}",
+                            action_input=final_result,
+                            tool_call_requires=False,
+                            status="in_progress",
+                        )
+                        continue
+                    else:
+                        return final_result
+
                 else:
                     # If not satisfactory, add feedback and continue the loop
                     global_memory_store.add_iteration(
                         session_id=self.session_id,
                         agent_name="OrchestratorAgent",
-                        thought=f"The response needs improvement: {quality_check['feedback']}",
+                        thought=f"The response needs improvement i should rebuild the execution plan (not fully built as previous one) which incoporate the feedback: {quality_check['feedback']}",
                         action="Continue",
                         observation="Response quality check failed",
                         action_input="",
@@ -248,31 +294,49 @@ class OrchestratorAgent:
 
                     # Add a quality check step
                     quality_check = await self._evaluate_response_quality(
-                        user_query, agent_result
+                        user_query, final_result
                     )
 
                     if (
                         str(quality_check["is_response_adequate"]).lower()
                         == "true"
                     ):
-                        # If the response is satisfactory, mark as completed and return
                         global_memory_store.add_iteration(
                             session_id=self.session_id,
                             agent_name="OrchestratorAgent",
-                            thought="I have reviewed the final response and it adequately addresses the user query",
-                            action="Complete",
+                            thought="I have reviewed the final response and it adequately addresses the user query now i need to get feedback from the human user",
+                            action="not applicable",
                             observation="Response quality check passed",
                             action_input="",
                             tool_call_requires=False,
-                            status="completed",
+                            status="in_progress",
                         )
-                        return final_result
+                        feedback = global_feedback_registry.get_human_feedback(
+                            response=FINAL_RESPONSE_FEEDBACK_PROMPT.format(
+                                final_response=final_result
+                            ),
+                            agent_name="OrchestratorAgent",
+                        )
+                        if feedback["status"] == "feedback":
+                            global_memory_store.add_iteration(
+                                session_id=self.session_id,
+                                agent_name="OrchestratorAgent",
+                                thought=f"I received feedback from human user which i must use and according to it i should rebuild the execution plan(not fully built as previous one but only such that it incoporate the feedback) and the final response",
+                                action="",
+                                observation=f"feedback from the human user: {feedback['feedback']}",
+                                action_input=final_result,
+                                tool_call_requires=False,
+                                status="in_progress",
+                            )
+                            continue
+                        else:
+                            return final_result
                     else:
                         # If not satisfactory, add feedback and continue the loop
                         global_memory_store.add_iteration(
                             session_id=self.session_id,
                             agent_name="OrchestratorAgent",
-                            thought=f"The response needs improvement: {quality_check['feedback']}",
+                            thought=f"The response needs improvement i should rebuild the execution plan (not fully built as previous one) which incoporate the feedback: {quality_check['feedback']}",
                             action="Continue",
                             observation="Response quality check failed",
                             action_input="",

@@ -1,3 +1,5 @@
+import time
+
 from google import genai
 
 from src.config.settings import settings
@@ -14,5 +16,5 @@ class GeminiLLM:
         )
         if not response:
             return None
-
+        time.sleep(3)
         return response.text
