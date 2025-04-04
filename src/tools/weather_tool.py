@@ -33,4 +33,4 @@ async def get_forecast(city: str) -> str:
     if not data:
         return "Failed to fetch weather data"
 
-    return f"The weather in {city} is {data['weather'][0]['description']} with a temperature of {data['main']['temp']}°F."
+    return f"The weather in {city} is {data['weather'][0]['description']} with a temperature of {data['main']['temp']}°K."

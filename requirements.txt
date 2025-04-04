@@ -8,3 +8,6 @@ google-genai
 pydantic_settings
 pydantic
 Crawl4AI==0.5.0
+browser-use
+playwright
+langchain-google-genai

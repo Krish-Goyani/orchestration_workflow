@@ -197,3 +197,29 @@ Remember to:
 
 now determine the next iteration step
 """
+
+
+EVALUATION_PROMPT = """
+You are a quality control expert. Your task is to evaluate if the following response 
+adequately addresses the user query.
+
+User Query: {user_query}
+
+Generated Response: {response}
+
+Please evaluate if the response:
+1. Directly addresses the user's question or request
+2. Is complete and doesn't leave out important information
+3. Is accurate and doesn't contain errors
+4. Is well-structured and easy to understand
+
+## Response Formats:
+your response should be strictly follow below json format:
+
+```json
+{{
+    "is_response_adequate": true or false without any acknowledgement,
+    "feedback": "if the response is not adequate then provide the deatiled feedback for the response and if the response is adequate then provide the feedback as null"
+}}
+```
+"""

@@ -11,6 +11,7 @@ from src.llms.gemini_llm import GeminiLLM
 from src.memory.long_term.memory_store import global_memory_store
 from src.models.schema.agent_schema import Agent
 from src.prompts.orchestator_prompt import (
+    EVALUATION_PROMPT,
     ORCHESTARTOR_SYSTEM_PROMPT,
     ORCHESTARTOR_USER_PROMPT,
 )
@@ -148,6 +149,9 @@ class OrchestratorAgent:
             session_id=self.session_id, user_query=user_query
         )
 
+        final_result = None
+        agent_result = None
+
         # Create a while loop to keep the orchestrator agent running
         while True:
             history = global_memory_store.get_history(
@@ -184,7 +188,52 @@ class OrchestratorAgent:
             # If we have an execution plan, execute it
             if execution_plan:
                 result = await self.execute_execution_plan(execution_plan)
-                return result
+
+                # Store the result for potential review
+                final_result = result
+
+                global_memory_store.add_iteration(
+                    session_id=self.session_id,
+                    agent_name="OrchestratorAgent",
+                    thought="I have built the execution plan and I have the result from the execution",
+                    action="Not applicable",
+                    observation=result,
+                    action_input=execution_plan,
+                    tool_call_requires=False,
+                    status="in_progress",  # Keep as in_progress to allow for review
+                )
+
+                # Add a quality check step
+                quality_check = await self._evaluate_response_quality(
+                    user_query, result
+                )
+
+                if str(quality_check["is_response_adequate"]).lower() == "true":
+                    # If the response is satisfactory, mark as completed and return
+                    global_memory_store.add_iteration(
+                        session_id=self.session_id,
+                        agent_name="OrchestratorAgent",
+                        thought="I have reviewed the final response and it adequately addresses the user query",
+                        action="Complete",
+                        observation="Response quality check passed",
+                        action_input="",
+                        tool_call_requires=False,
+                        status="completed",
+                    )
+                    return final_result
+                else:
+                    # If not satisfactory, add feedback and continue the loop
+                    global_memory_store.add_iteration(
+                        session_id=self.session_id,
+                        agent_name="OrchestratorAgent",
+                        thought=f"The response needs improvement: {quality_check['feedback']}",
+                        action="Continue",
+                        observation="Response quality check failed",
+                        action_input="",
+                        tool_call_requires=False,
+                        status="in_progress",
+                    )
+                    # Continue the loop to generate a new execution plan or take other actions
 
             # Otherwise, follow the original flow
             elif str(response_data.get("tool_call_requires")).lower() == "true":
@@ -194,11 +243,84 @@ class OrchestratorAgent:
                 )
 
                 if response_data.get("action") == "ResponseSynthesizerExpert":
-                    return agent_result
+                    # Store the result for potential review
+                    final_result = agent_result
+
+                    # Add a quality check step
+                    quality_check = await self._evaluate_response_quality(
+                        user_query, agent_result
+                    )
+
+                    if (
+                        str(quality_check["is_response_adequate"]).lower()
+                        == "true"
+                    ):
+                        # If the response is satisfactory, mark as completed and return
+                        global_memory_store.add_iteration(
+                            session_id=self.session_id,
+                            agent_name="OrchestratorAgent",
+                            thought="I have reviewed the final response and it adequately addresses the user query",
+                            action="Complete",
+                            observation="Response quality check passed",
+                            action_input="",
+                            tool_call_requires=False,
+                            status="completed",
+                        )
+                        return final_result
+                    else:
+                        # If not satisfactory, add feedback and continue the loop
+                        global_memory_store.add_iteration(
+                            session_id=self.session_id,
+                            agent_name="OrchestratorAgent",
+                            thought=f"The response needs improvement: {quality_check['feedback']}",
+                            action="Continue",
+                            observation="Response quality check failed",
+                            action_input="",
+                            tool_call_requires=False,
+                            status="in_progress",
+                        )
+                        # Continue the loop to generate a new execution plan or take other actions
 
             if (
                 str(response_data.get("status")).lower() == "completed"
                 or history.total_iterations >= settings.MAX_ITERATIONS
-                or response_data.get("action") == "ResponseSynthesizerExpert"
             ):
                 break
+
+        # If we've reached the maximum iterations or the orchestrator decided to complete
+        # but we have a final result, return it
+        if final_result:
+            return final_result
+
+        # Otherwise, return the last agent result
+        return agent_result
+
+    async def _evaluate_response_quality(
+        self, user_query: str, response: str
+    ) -> Dict:
+        """
+        Evaluate the quality of the response in relation to the user query.
+
+        Args:
+            user_query: The original user query
+            response: The generated response to evaluate
+
+        Returns:
+            A dictionary with evaluation results
+        """
+
+        evaluation_prompt = EVALUATION_PROMPT.format(
+            user_query=user_query, response=response
+        )
+        # Call the LLM for evaluation
+        config = types.GenerateContentConfig(
+            system_instruction="You are a quality control expert for AI-generated responses."
+        )
+
+        evaluation_response = await self.llm.generate_response(
+            config=config, contents=evaluation_prompt
+        )
+
+        response = parse_response(evaluation_response)
+
+        return response

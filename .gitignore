@@ -181,3 +181,4 @@ batch_api
 linters.sh
 track.md
 .cursorignore
+logs/
