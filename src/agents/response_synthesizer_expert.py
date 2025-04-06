@@ -43,5 +43,15 @@ class ResponseSynthesizerExpert:
         )
 
         response_data = parse_response(response)
+        global_memory_store.add_iteration(
+            session_id=self.session_id,
+            agent_name="ResponseSynthesizerExpert",
+            thought="Orchestator Agent invoked me to syntehsize the response.",
+            action="Not applicable",
+            action_input="Whole conversation history and user query.",
+            tool_call_requires=False,
+            status="completed",
+            observation=response_data.get("final_response", "no response"),
+        )
 
         return response_data.get("final_response", "no response")

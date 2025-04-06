@@ -34,5 +34,5 @@ async def get_forecast(city: str) -> str:
         return "Failed to fetch weather data"
 
     # Convert Kelvin to Celsius
-    temp_celsius = round(data['main']['temp'] - 273.15, 1)
+    temp_celsius = round(data["main"]["temp"] - 273.15, 1)
     return f"The weather in {city} is {data['weather'][0]['description']} with a temperature of {temp_celsius}°C."
