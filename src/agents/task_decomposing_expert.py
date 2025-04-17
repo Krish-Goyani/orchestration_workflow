@@ -7,12 +7,13 @@ from src.agents.agent_registry import global_agent_registry
 from src.config.settings import settings
 from src.human_loop.human_feedback import global_feedback_registry
 from src.llms.gemini_llm import GeminiLLM
-from src.memory.long_term.memory_store import global_memory_store
+from src.memory.memory_manager import global_memory_manager
 from src.prompts.agent_prompts import (
     TASK_DECOMPOSING_SYSTEM_PROMPT,
     TASK_DECOMPOSING_USER_PROMPT,
 )
 from src.prompts.human_feedback_prompts import QUERY_DECOMPOSER_FEEDBACK_PROMPT
+from src.utils.memory_store import store_iteration
 from src.utils.response_parser import parse_response
 from src.utils.session_context import session_state
 
@@ -35,6 +36,7 @@ class TaskDecomposingExpert:
         agent_iteration_count = 0
         while True:
             agent_iteration_count += 1
+
             config = types.GenerateContentConfig(
                 system_instruction=TASK_DECOMPOSING_SYSTEM_PROMPT.format(
                     available_agents=global_agent_registry.get_all_agents()
@@ -64,10 +66,10 @@ class TaskDecomposingExpert:
             )
 
             if feedback["status"] == "feedback":
-                global_memory_store.add_iteration(
+                await store_iteration(
                     session_id=self.session_id,
                     agent_name="TaskDecomposingExpert",
-                    thought=f"I received feedback from human user which i must use and improve my task decomposition",
+                    thought=f"I received feedback from human user which I must use and improve my task decomposition",
                     action="Not applicable",
                     observation=f"feedback from the human user: {feedback['feedback']}",
                     tool_call_requires=False,
@@ -76,7 +78,7 @@ class TaskDecomposingExpert:
                 )
                 response_data["status"] = "in_progress"
             else:
-                global_memory_store.add_iteration(
+                await store_iteration(
                     session_id=self.session_id,
                     agent_name="TaskDecomposingExpert",
                     thought=response_data.get("thought"),
@@ -87,15 +89,37 @@ class TaskDecomposingExpert:
                     action_input="Not applicable",
                 )
 
-            history = global_memory_store.get_history(
-                session_id=self.session_id
-            )
-            if (
-                str(response_data.get("status")).lower() == "completed"
-                or history.total_iterations >= settings.MAX_ITERATIONS
-                or agent_iteration_count >= 5
-            ):
-                break
+            # Check if we should exit the loop
+            try:
+                # Get completion status
+                status = response_data.get("status", "").lower()
+
+                # Try to get history from memory manager
+                history_obj = await global_memory_manager.get_complete_history(
+                    self.session_id
+                )
+                total_iterations = (
+                    history_obj.total_iterations
+                    if history_obj
+                    else settings.MAX_ITERATIONS
+                )
+
+                if (
+                    status == "completed"
+                    or total_iterations >= settings.MAX_ITERATIONS
+                    or agent_iteration_count >= 5
+                ):
+                    break
+            except Exception as e:
+                print(f"Error checking loop exit conditions: {e}")
+                # Fallback to simpler logic
+                if (
+                    str(response_data.get("status")).lower() == "completed"
+                    or agent_iteration_count >= 5
+                ):
+                    break
+
+        return tasks
 
     def _convert_tasks(self, task_list):
         """

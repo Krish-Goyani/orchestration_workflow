@@ -6,13 +6,14 @@ from src.agents.agent_decorator import agent
 from src.agents.agent_registry import global_agent_registry
 from src.config.settings import settings
 from src.llms.gemini_llm import GeminiLLM
-from src.memory.long_term.memory_store import global_memory_store
+from src.memory.memory_manager import global_memory_manager
 from src.models.schema.tools_schema import Tool
 from src.prompts.agent_prompts import (
     RESEARCH_AGENT_SYSTEM_PROMPT,
     RESEARCH_AGENT_USER_PROMPT,
 )
 from src.tools.tools_registry import global_tool_registry
+from src.utils.memory_store import store_iteration
 from src.utils.response_parser import ensure_dict, parse_response
 from src.utils.session_context import session_state
 
@@ -35,13 +36,34 @@ class ResearchExpert:
     ):
         agent_iteration_count = 0
         task_ids = [task_id] + parent_ids
+
         while True:
-            # Fetch the latest history
+            # Fetch the latest context for this task
             agent_iteration_count += 1
-            history = global_memory_store.get_task_history(
-                session_id=self.session_id, task_ids=task_ids
-            )
-            if not history:
+
+            try:
+                # Get context from the context-aware memory manager
+                # This will intelligently retrieve the most relevant context
+                history = await global_memory_manager.get_task_context(
+                    task_id=task_id,
+                    session_id=self.session_id,
+                    task=task,
+                    agent_name="ResearchExpert",
+                    dependencies=task_ids,
+                )
+                recent_history = history.get("recent_history", {})
+                summaries = history.get("summary", [])
+                rag_results = history.get("rag_results", [])
+
+                # Format context for prompt
+                context_str = f"Recent History: {recent_history}\n"
+                if summaries:
+                    context_str += f"Summaries: {summaries}\n"
+                if rag_results:
+                    context_str += f"Retrieved Context: {rag_results}\n"
+
+            except Exception as e:
+                print(f"Error retrieving enhanced memory context: {e}")
                 break
 
             config = types.GenerateContentConfig(
@@ -50,7 +72,7 @@ class ResearchExpert:
                 ),
             )
             contents = RESEARCH_AGENT_USER_PROMPT.format(
-                action_input=task, history=history
+                action_input=task, history=context_str
             )
             response = await self.llm.generate_response(
                 config=config, contents=contents
@@ -63,27 +85,8 @@ class ResearchExpert:
                     response_data, self.session_id, task_id
                 )
             else:
-                history = global_memory_store.get_history(
-                    session_id=self.session_id
-                )
-                if not history:
-                    break
-
-                config = types.GenerateContentConfig(
-                    system_instruction=RESEARCH_AGENT_SYSTEM_PROMPT.format(
-                        available_tools=self.get_available_tools()
-                    )
-                )
-                contents = RESEARCH_AGENT_USER_PROMPT.format(
-                    history=history, action_input="Not applicable"
-                )
-                response = await self.llm.generate_response(
-                    config=config, contents=contents
-                )
-
-                response_data = parse_response(response)
-
-                global_memory_store.add_iteration(
+                # Store the agent's iteration in both memory systems
+                await store_iteration(
                     session_id=self.session_id,
                     agent_name="ResearchExpert",
                     thought=response_data.get("thought"),
@@ -94,16 +97,37 @@ class ResearchExpert:
                     status=response_data.get("status"),
                     task_id=task_id,
                 )
+            # Check if we should exit the loop
+            try:
+                # Check completion status and iteration limits
+                status = response_data.get("status", "").lower()
 
-            history = global_memory_store.get_history(
-                session_id=self.session_id
-            )
-            if (
-                str(response_data.get("status")).lower() == "completed"
-                or history.total_iterations >= settings.MAX_ITERATIONS
-                or agent_iteration_count >= settings.MAX_AGENT_ITERATIONS
-            ):
-                break
+                # Try to get history from memory manager first
+                history_obj = await global_memory_manager.get_complete_history(
+                    self.session_id
+                )
+                total_iterations = (
+                    history_obj.total_iterations
+                    if history_obj
+                    else settings.MAX_ITERATIONS
+                )
+
+                if (
+                    status == "completed"
+                    or total_iterations >= settings.MAX_ITERATIONS
+                    or agent_iteration_count >= settings.MAX_AGENT_ITERATIONS
+                ):
+                    break
+            except Exception as e:
+                print(f"Error checking loop exit conditions: {e}")
+                # Fallback to simpler logic
+                if (
+                    str(response_data.get("status")).lower() == "completed"
+                    or agent_iteration_count >= settings.MAX_AGENT_ITERATIONS
+                ):
+                    break
+
+        return "Research task completed"
 
     async def _handle_tool_call(self, response_data, session_id, task_id):
         try:
@@ -113,11 +137,11 @@ class ResearchExpert:
             )
         except Exception as e:
             print("Error calling tool:", e)
-            result = "error occured"
+            result = "error occurred"
             return False
 
-        # Store the result in memory
-        global_memory_store.add_iteration(
+        # Store the result in both memory systems
+        await store_iteration(
             session_id=session_id,
             agent_name="ResearchExpert",
             thought=response_data.get("thought"),

@@ -12,3 +12,8 @@ browser-use
 playwright
 langchain-google-genai
 docker>=6.0.0
+redis
+pinecone
+motor==3.6.0
+pymongo
+aiohttp

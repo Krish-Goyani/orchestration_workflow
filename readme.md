@@ -56,3 +56,72 @@ Key features:
 - Serper API key (for web search)
 - OpenWeatherMap API key
 
+
+
+in my mind i have one approach :
+
+<APPROACH>
+
+orchestrator agent first call the query decomposer. the query decomposer give the output in below format:
+
+{"task_id" : 1, "task", etc}
+
+now based on that the orchestrator agent will design the implementation plan.
+
+the implementation plan will be looks like :
+
+{
+
+  "execution_plan": [
+
+    {
+
+      "task_id": "1",
+
+      "task": "Explain RAG in AI",
+
+      "agent": "ResearchAgent",
+
+      "dependencies": []
+
+    },
+
+    {
+
+      "task_id": "2",
+
+      "task": "Research recent findings in AI",
+
+      "agent": "ResearchAgent",
+
+      "dependencies": []
+
+    },
+
+    {
+
+      "task_id": "3",
+
+      "task": "synteise the final response",
+
+      "agent": "ResponseSyntesizer",
+
+      "dependencies": [1,2]
+
+    }
+
+  ]
+
+}
+
+once we get the execution plan we will start the all agents in parallel who dont have dependacies on others. than the agent who have the dependancies are executed.
+
+the specialized agent only get the history iterations of that task id only and if they have the dependencies than their + their parent's history iterations.
+
+the orchestrator and the ResponseSyntesizer get the whole history.
+
+for that i have a thought to do the memory management in below way.
+
+maintain the window for each task_id and once the threshold is meet do the summary of the past conversations. for every llm calls inside the Agent do the intent identification call in which give the recent 5 interactions and summary and ask the llm do the additional context required 
+
+</APPROACH>

@@ -6,13 +6,14 @@ from src.agents.agent_decorator import agent
 from src.agents.agent_registry import global_agent_registry
 from src.config.settings import settings
 from src.llms.gemini_llm import GeminiLLM
-from src.memory.long_term.memory_store import global_memory_store
+from src.memory.memory_manager import global_memory_manager
 from src.models.schema.tools_schema import Tool
 from src.prompts.agent_prompts import (
     WEATHER_EXPERT_SYSTEM_PROMPT,
     WEATHER_EXPERT_USER_PROMPT,
 )
 from src.tools.tools_registry import global_tool_registry
+from src.utils.memory_store import store_iteration
 from src.utils.response_parser import ensure_dict, parse_response
 from src.utils.session_context import session_state
 
@@ -20,11 +21,10 @@ from src.utils.session_context import session_state
 @agent
 class WeatherExpert:
     """
-    WeatherExpertAgent
+    Weather Expert Agent
 
-    it is an agent designed to assist with weather-related queries.
-    it use the external api to get the current temperatur of the location.
-    if you want to know the current temperature of the location than you can use this agent.
+    This agent specializes in providing weather information for specific locations.
+    It can get current weather conditions, forecasts, and historical weather data.
     """
 
     def __init__(self):
@@ -37,13 +37,34 @@ class WeatherExpert:
         agent_iteration_count = 0
         task_ids = [task_id] + parent_ids
         while True:
-
-            # Fetch the latest history
+            # Fetch the latest context for this task
             agent_iteration_count += 1
-            history = global_memory_store.get_task_history(
-                session_id=self.session_id, task_ids=task_ids
-            )
-            if not history:
+
+            try:
+                # Get context from the context-aware memory manager
+                # This will intelligently retrieve the most relevant context
+                history = await global_memory_manager.get_task_context(
+                    session_id=self.session_id,
+                    agent_name="WeatherExpert",
+                    task=task,
+                    task_id=task_id,
+                    dependencies=parent_ids,
+                )
+
+                # Extract the relevant parts of the context
+                recent_history = history.get("recent_history", {})
+                summaries = history.get("summary", [])
+                rag_results = history.get("rag_results", [])
+
+                # Format context for prompt
+                context_str = f"Recent History: {recent_history}\n"
+                if summaries:
+                    context_str += f"Summaries: {summaries}\n"
+                if rag_results:
+                    context_str += f"Retrieved Context: {rag_results}\n"
+
+            except Exception as e:
+                print(f"Error retrieving enhanced memory context: {e}")
                 break
 
             config = types.GenerateContentConfig(
@@ -52,7 +73,7 @@ class WeatherExpert:
                 ),
             )
             contents = WEATHER_EXPERT_USER_PROMPT.format(
-                action_input=task, history=history
+                action_input=task, history=context_str
             )
             response = await self.llm.generate_response(
                 config=config, contents=contents
@@ -65,27 +86,7 @@ class WeatherExpert:
                     response_data, self.session_id, task_id
                 )
             else:
-                history = global_memory_store.get_history(
-                    session_id=self.session_id
-                )
-                if not history:
-                    break
-
-                config = types.GenerateContentConfig(
-                    system_instruction=WEATHER_EXPERT_SYSTEM_PROMPT.format(
-                        available_tools=self.get_available_tools()
-                    )
-                )
-                contents = WEATHER_EXPERT_USER_PROMPT.format(
-                    history=history, action_input="Not applicable"
-                )
-                response = await self.llm.generate_response(
-                    config=config, contents=contents
-                )
-
-                response_data = parse_response(response)
-
-                global_memory_store.add_iteration(
+                await store_iteration(
                     session_id=self.session_id,
                     agent_name="WeatherExpert",
                     thought=response_data.get("thought"),
@@ -97,15 +98,37 @@ class WeatherExpert:
                     task_id=task_id,
                 )
 
-            history = global_memory_store.get_history(
-                session_id=self.session_id
-            )
-            if (
-                str(response_data.get("status")).lower() == "completed"
-                or history.total_iterations >= settings.MAX_ITERATIONS
-                or agent_iteration_count >= settings.MAX_AGENT_ITERATIONS
-            ):
-                break
+            # Check if we should exit the loop
+            try:
+                # Check completion status and iteration limits
+                status = response_data.get("status", "").lower()
+
+                # Try to get history from memory manager first
+                history_obj = await global_memory_manager.get_complete_history(
+                    self.session_id
+                )
+                total_iterations = (
+                    history_obj.total_iterations
+                    if history_obj
+                    else settings.MAX_ITERATIONS
+                )
+
+                if (
+                    status == "completed"
+                    or total_iterations >= settings.MAX_ITERATIONS
+                    or agent_iteration_count >= settings.MAX_AGENT_ITERATIONS
+                ):
+                    break
+            except Exception as e:
+                print(f"Error checking loop exit conditions: {e}")
+                # Fallback to simpler logic
+                if (
+                    str(response_data.get("status")).lower() == "completed"
+                    or agent_iteration_count >= settings.MAX_AGENT_ITERATIONS
+                ):
+                    break
+
+        return "Weather information processed"
 
     async def _handle_tool_call(self, response_data, session_id, task_id):
         try:
@@ -118,8 +141,8 @@ class WeatherExpert:
             result = "error occured"
             return False
 
-        # Store the result in memory
-        global_memory_store.add_iteration(
+        # Store the result in memory using the central memory store
+        await store_iteration(
             session_id=session_id,
             agent_name="WeatherExpert",
             thought=response_data.get("thought"),
@@ -134,9 +157,9 @@ class WeatherExpert:
 
     def get_available_tools(self) -> list[Tool]:
         """
-        Get the list of available tools for the agent.
+        Get a list of tools available to the agent.
 
         Returns:
-            list[Tool]: The list of available tools.
+            list[Tool]: The list of tools available to the agent.
         """
-        return global_agent_registry.get_agent_tools(agent_name="WeatherExpert")
+        return global_agent_registry.get_agent_tools("WeatherExpert")

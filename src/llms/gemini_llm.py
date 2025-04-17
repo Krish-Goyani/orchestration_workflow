@@ -8,7 +8,7 @@ class GeminiLLM:
         self.client = genai.Client(api_key=settings.GEMINI_API_KEY)
         self.model_name = "gemini-2.0-flash"
 
-    async def generate_response(self, config, contents):
+    async def generate_response(self, config, contents) -> str:
         response = await self.client.aio.models.generate_content(
             model=self.model_name, config=config, contents=contents
         )

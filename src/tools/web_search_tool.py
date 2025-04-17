@@ -17,14 +17,15 @@ timeout = httpx.Timeout(
 
 async def make_websearch_request(url: str) -> dict[str, Any] | None:
     "make a websearch request to the given url"
-    async with httpx.AsyncClient(verify=False, timeout=timeout) as client:
-        try:
+    try:
+        # Use async with to ensure proper client cleanup
+        async with httpx.AsyncClient(verify=False, timeout=timeout) as client:
             response = await client.get(url=url)
             response.raise_for_status()
             return response.json()
-        except Exception as e:
-            print(e)
-            return None
+    except Exception as e:
+        print(f"Error in web search request: {e}")
+        return None
 
 
 @tool()
@@ -40,7 +41,7 @@ async def websearch(query: str) -> List[str]:
 
     urls = await make_websearch_request(WEBSEARCH_END_POINT.format(query=query))
     if not urls:
-        return "not found"
+        return ["not found"]  # Return a list instead of a string
 
-    results = [res["link"] for res in urls["organic"]][:2]
+    results = [res["link"] for res in urls["organic"]][:1]
     return results
